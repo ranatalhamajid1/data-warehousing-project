@@ -1,0 +1,36 @@
+name: 'retail_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'retail_analytics'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  retail_analytics:
+    staging:
+      +schema: staging
+      +materialized: view
+      +tags: ["staging"]
+    marts:
+      +schema: marts
+      +materialized: table
+      +tags: ["marts"]
+    analytics:
+      +schema: analytics
+      +materialized: table
+      +tags: ["analytics"]
+
+vars:
+  start_date: '2024-01-01'
+  end_date:   '2024-12-31'

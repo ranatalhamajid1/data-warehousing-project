@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Customer Analytics — Retail Analytics Engine{% endblock %}
+{% block page_title %}Customer Analytics{% endblock %}
+{% block page_subtitle %}RFM segmentation · LTV tiers · Growth trends{% endblock %}
+
+{% block content %}
+
+<!-- ── Customer KPI Cards ───────────────────────────────────────────── -->
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom:20px;">
+  <div class="kpi-card">
+    <div class="kpi-icon cyan"><i class="bi bi-people-fill"></i></div>
+    <div class="kpi-label">Total Customers</div>
+    <div class="kpi-value">{{ '{:,}'.format(kpi.total_customers) }}</div>
+    <div class="kpi-change neutral">In database</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i class="bi bi-person-check-fill"></i></div>
+    <div class="kpi-label">Active Customers</div>
+    <div class="kpi-value">{{ '{:,}'.format(kpi.active_customers) }}</div>
+    <div class="kpi-change positive"><i class="bi bi-arrow-up-short"></i> 72.3% active rate</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon violet"><i class="bi bi-graph-up"></i></div>
+    <div class="kpi-label">Avg Lifetime Value</div>
+    <div class="kpi-value">${{ '{:.2f}'.format(kpi.avg_ltv) }}</div>
+    <div class="kpi-change positive"><i class="bi bi-arrow-up-short"></i> Per customer</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i class="bi bi-trophy-fill"></i></div>
+    <div class="kpi-label">Champions</div>
+    <div class="kpi-value">{{ '{:,}'.format(kpi.champions_count) }}</div>
+    <div class="kpi-change positive"><i class="bi bi-arrow-up-short"></i> RFM top tier</div>
+  </div>
+</div>
+
+<!-- ── Growth + Segments Charts ────────────────────────────────────── -->
+<div class="chart-grid chart-grid-2" style="margin-bottom:20px;">
+
+  <!-- Customer Growth Line Chart -->
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">New Customer Growth</div>
+        <div class="chart-card-subtitle">Monthly new registrations — 2024</div>
+      </div>
+    </div>
+    <div style="height:260px; position:relative;">
+      <canvas id="customer-growth-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- RFM Segments Donut -->
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">RFM Customer Segments</div>
+        <div class="chart-card-subtitle">Recency · Frequency · Monetary segmentation</div>
+      </div>
+    </div>
+    <div style="height:260px; position:relative;">
+      <canvas id="rfm-donut-chart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── RFM Segment Breakdown Table ────────────────────────────────── -->
+<div class="chart-card" style="margin-bottom:20px;">
+  <div class="chart-card-header">
+    <div class="chart-card-title">RFM Segment Detail</div>
+    <div class="chart-card-subtitle">Customer distribution and engagement metrics by segment</div>
+  </div>
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:12px; padding-top:8px;">
+    {% set segment_styles = {
+      'Champions':          ('badge-success', 'bi-award-fill text-success'),
+      'Loyal Customers':    ('badge-info',    'bi-gem text-info'),
+      'Potential Loyalists':('badge-info',    'bi-star-fill text-warning'),
+      'New Customers':      ('badge-neutral', 'bi-seedling text-success'),
+      'Needs Attention':    ('badge-warning', 'bi-lightning-charge-fill text-warning'),
+      'At Risk':            ('badge-warning', 'bi-exclamation-triangle-fill text-danger'),
+      'Cant Lose Them':     ('badge-danger',  'bi-heart-fill text-danger'),
+      'Lost':               ('badge-danger',  'bi-x-circle-fill text-muted'),
+    } %}
+    {% for seg in rfm_segments %}
+    {% set style_info = segment_styles.get(seg.segment, ('badge-neutral', 'bi-dot')) %}
+    <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px;">
+      <div style="font-size:20px; margin-bottom:6px; display:flex; align-items:center;"><i class="bi {{ style_info[1] }}"></i></div>
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">{{ seg.segment }}</div>
+      <div style="font-size:22px; font-weight:700; color:var(--text-primary);">{{ '{:,}'.format(seg.count) }}</div>
+      <div class="progress-bar-wrap" style="margin-top:8px;">
+        <div class="progress-bar-fill" style="width:{{ (seg.count / 10000 * 100)|round(1) }}%;"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ── Top Customers Table ─────────────────────────────────────────── -->
+<div class="table-card">
+  <div class="table-card-header">
+    <span class="table-card-title"><i class="bi bi-award-fill text-warning"></i> Top Customers by Lifetime Value</span>
+    <input type="text" id="customer-search" class="filter-input"
+           placeholder="Search by name or country..." style="width:220px;"
+           oninput="searchCustomers(this.value)" />
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="data-table" id="top-customers-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Customer</th>
+          <th>Country</th>
+          <th>RFM Segment</th>
+          <th>LTV Tier</th>
+          <th>Orders</th>
+          <th>Lifetime Revenue</th>
+          <th>Avg Order</th>
+        </tr>
+      </thead>
+      <tbody id="customers-tbody">
+        {% for c in top_customers %}
+        <tr data-name="{{ c.full_name }}" data-country="{{ c.country }}">
+          <td>
+            <span class="rank-number {% if c.rank == 1 %}rank-1{% elif c.rank == 2 %}rank-2{% elif c.rank == 3 %}rank-3{% else %}rank-n{% endif %}">
+              {{ c.rank }}
+            </span>
+          </td>
+          <td style="font-weight:600; color:var(--text-primary);">{{ c.full_name }}</td>
+          <td>
+            <span style="font-size:13px;">{{ c.country }}</span>
+          </td>
+          <td>
+            {% set seg_badge = {
+              'Champions': 'badge-success',
+              'Loyal Customers': 'badge-info',
+              'Potential Loyalists': 'badge-info',
+              'New Customers': 'badge-neutral',
+              'At Risk': 'badge-warning',
+              'Lost': 'badge-danger',
+            } %}
+            <span class="badge {{ seg_badge.get(c.rfm_segment, 'badge-neutral') }}">
+              {{ c.rfm_segment }}
+            </span>
+          </td>
+          <td>
+            <span class="badge badge-{{ c.ltv_tier | lower }}">
+              {{ c.ltv_tier }}
+            </span>
+          </td>
+          <td>{{ '{:,}'.format(c.total_orders) }}</td>
+          <td style="font-weight:700; color:var(--success);">
+            ${{ '{:,.2f}'.format(c.lifetime_revenue) }}
+          </td>
+          <td>${{ '{:,.2f}'.format(c.avg_order_value) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const growthData = {{ customer_growth | tojson }};
+const rfmData    = {{ rfm_segments | tojson }};
+
+function searchCustomers(term) {
+  const rows = document.querySelectorAll('#customers-tbody tr');
+  rows.forEach(row => {
+    const name    = row.dataset.name.toLowerCase();
+    const country = row.dataset.country.toLowerCase();
+    row.style.display = (name.includes(term.toLowerCase()) || country.includes(term.toLowerCase())) ? '' : 'none';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Customer Growth Line Chart
+  const gcCanvas = document.getElementById('customer-growth-chart');
+  if (gcCanvas) {
+    const ctx = gcCanvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, gcCanvas.height || 260);
+    grad.addColorStop(0, 'rgba(6,182,212,0.3)');
+    grad.addColorStop(1, 'rgba(6,182,212,0.01)');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: growthData.map(d => d.month),
+        datasets: [{
+          label: 'New Customers',
+          data: growthData.map(d => d.new_customers),
+          borderColor: '#06b6d4',
+          backgroundColor: grad,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 10,
+          pointHoverBackgroundColor: '#ffffff',
+          pointHoverBorderColor: '#06b6d4',
+          pointHoverBorderWidth: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 1000,
+          easing: 'easeOutBack'
+        },
+        transitions: {
+          active: {
+            animation: {
+              duration: 400,
+              easing: 'easeOutBack'
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 11 } } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // RFM Segment Donut
+  const rfmColors = ['#10b981','#0ea5e9','#6366f1','#f59e0b','#8b5cf6','#ef4444','#ec4899','#14b8a6'];
+  const rfmDonutCanvas = document.getElementById('rfm-donut-chart');
+  if (rfmDonutCanvas) {
+    const ctx2 = rfmDonutCanvas.getContext('2d');
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: rfmData.map(r => r.segment),
+        datasets: [{
+          data: rfmData.map(r => r.count),
+          backgroundColor: rfmColors.map(c => c + 'cc'),
+          borderColor: rfmColors,
+          borderWidth: 2,
+          hoverOffset: 20,
+          hoverBorderWidth: 4,
+          hoverBorderColor: '#ffffff',
+          hoverBackgroundColor: rfmColors,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        animation: {
+          animateScale: true,
+          animateRotate: true,
+          duration: 1000,
+          easing: 'easeOutBack'
+        },
+        transitions: {
+          active: {
+            animation: {
+              duration: 400,
+              easing: 'easeOutBack'
+            }
+          }
+        },
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                const pct = ((ctx.raw/total)*100).toFixed(1);
+                return ` ${ctx.label}: ${ctx.raw.toLocaleString()} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Enterprise Retail Analytics Engine — Powered by Snowflake, dbt, and Google Gemini" />
+  <title>{% block title %}Retail Analytics Engine{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=1.4" />
+
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-brand">
+      <a href="/" class="brand-logo">
+        <div class="brand-icon"><i class="bi bi-bar-chart-fill text-white"></i></div>
+        <div class="brand-text">
+          <span class="brand-name">Retail Analytics</span>
+          <span class="brand-tagline">Enterprise Engine v1.0</span>
+        </div>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+
+      <a href="{{ url_for('dashboard') }}" id="nav-dashboard"
+         class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+        Dashboard
+      </a>
+
+      <a href="{{ url_for('revenue') }}" id="nav-revenue"
+         class="nav-item {% if request.endpoint == 'revenue' %}active{% endif %}">
+        <span class="nav-icon"><i class="bi bi-graph-up-arrow"></i></span>
+        Revenue Analytics
+      </a>
+
+      <a href="{{ url_for('products') }}" id="nav-products"
+         class="nav-item {% if request.endpoint == 'products' %}active{% endif %}">
+        <span class="nav-icon"><i class="bi bi-box-seam-fill"></i></span>
+        Product Analytics
+      </a>
+
+      <a href="{{ url_for('customers') }}" id="nav-customers"
+         class="nav-item {% if request.endpoint == 'customers' %}active{% endif %}">
+        <span class="nav-icon"><i class="bi bi-people-fill"></i></span>
+        Customer Analytics
+      </a>
+
+      <div class="nav-section-label">AI</div>
+
+      <a href="{{ url_for('ask_data') }}" id="nav-ask"
+         class="nav-item {% if request.endpoint == 'ask_data' %}active{% endif %}">
+        <span class="nav-icon"><i class="bi bi-stars"></i></span>
+        Ask Your Data
+        <span class="badge badge-info ms-auto" style="font-size:9px;">AI</span>
+      </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="connection-badge">
+        {% if snowflake_live %}
+          <div class="status-dot live"></div>
+          <span style="color:var(--success); font-size:12px;">Snowflake Live</span>
+        {% else %}
+          <div class="status-dot demo"></div>
+          <span style="color:var(--warning); font-size:12px;">Demo Mode</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </aside><!-- /sidebar -->
+
+  <!-- ── Main Content ────────────────────────────────────── -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="topbar-title">{% block page_title %}Overview{% endblock %}</span>
+        <span class="topbar-subtitle">{% block page_subtitle %}Enterprise Retail Analytics Engine{% endblock %}</span>
+      </div>
+      <div class="topbar-right">
+        <span id="live-clock" style="font-size:12px; color:var(--text-muted); font-variant-numeric:tabular-nums;"></span>
+        
+        <!-- Theme Switcher Button Group -->
+        <div class="theme-toggle-group">
+          <button class="theme-btn" id="theme-light" onclick="setTheme('light')" title="Light Theme">
+            <i class="bi bi-sun-fill"></i>
+          </button>
+          <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')" title="Dark Theme">
+            <i class="bi bi-moon-stars-fill"></i>
+          </button>
+          <button class="theme-btn" id="theme-night" onclick="setTheme('night')" title="Night Theme">
+            <i class="bi bi-stars"></i>
+          </button>
+        </div>
+
+        <a href="{{ url_for('api_ask') | replace('/api/ask', '/ask-data') }}" class="btn btn-primary btn-sm" id="topbar-ask-btn">
+          <i class="bi bi-stars"></i> Ask AI
+        </a>
+      </div>
+    </header>
+
+    <!-- Demo Mode Alert -->
+    {% if not snowflake_live %}
+    <div style="padding: 0 28px; padding-top:16px;">
+      <div class="alert alert-demo">
+        <i class="bi bi-info-circle-fill"></i>
+        <strong>Demo Mode</strong> — Snowflake is not connected. Displaying sample data.
+        Configure <code>.env</code> with your Snowflake credentials to connect live data.
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Page Content -->
+    <main class="page-content fade-in" id="page-content">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div><!-- /main-content -->
+
+</div><!-- /app-layout -->
+
+<!-- ── Scripts ──────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}?v=1.5"></script>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const el = document.getElementById('live-clock');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Mobile sidebar toggle
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('sidebar').classList.remove('open');
+  });
+
+  // Theme support
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    updateThemeButtons(theme);
+    
+    // Auto re-render charts to match new theme colors if function exists
+    if (typeof updateChartsForTheme === 'function') {
+      updateChartsForTheme(theme);
+    }
+  }
+
+  function updateThemeButtons(theme) {
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`theme-${theme}`);
+    if (activeBtn) activeBtn.classList.add('active');
+  }
+
+  // Initial update
+  updateThemeButtons(localStorage.getItem('theme') || 'light');
+</script>
+
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

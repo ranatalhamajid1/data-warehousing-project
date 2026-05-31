@@ -1,0 +1,254 @@
+version: 2
+
+# ─── Sources ─────────────────────────────────────────────────────────────────
+
+sources:
+  - name: raw
+    database: RETAIL_DW
+    schema: RAW
+    description: "Raw staging tables loaded from CSV files via Python ETL"
+    tables:
+      - name: stg_customers
+        description: "Raw customer data from generate_data.py"
+        columns:
+          - name: customer_id
+            description: "Unique customer identifier"
+            tests: [unique, not_null]
+          - name: email
+            tests: [not_null]
+          - name: registration_date
+            tests: [not_null]
+
+      - name: stg_products
+        description: "Raw product catalog data"
+        columns:
+          - name: product_id
+            tests: [unique, not_null]
+          - name: category
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['Electronics', 'Clothing', 'Home & Garden', 'Sports',
+                           'Books', 'Toys', 'Beauty', 'Food', 'Automotive', 'Office']
+
+      - name: stg_orders
+        description: "Raw transaction orders"
+        columns:
+          - name: order_id
+            tests: [unique, not_null]
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'stg_customers')
+                  field: customer_id
+
+      - name: stg_order_items
+        description: "Raw order line items"
+        columns:
+          - name: order_item_id
+            tests: [unique, not_null]
+          - name: order_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'stg_orders')
+                  field: order_id
+          - name: product_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'stg_products')
+                  field: product_id
+
+      - name: stg_competitor_prices
+        description: "Competitor pricing data scraped from HTML"
+        columns:
+          - name: product_name
+            tests: [not_null]
+          - name: competitor_name
+            tests: [not_null]
+
+# ─── Staging Models ──────────────────────────────────────────────────────────
+
+models:
+  - name: stg_customers
+    description: "Cleaned and typed customer staging model"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: email
+        tests: [not_null]
+      - name: gender
+        tests:
+          - accepted_values:
+              values: ['Male', 'Female', 'Non-Binary']
+      - name: registration_date
+        tests: [not_null]
+
+  - name: stg_products
+    description: "Cleaned product staging model with margin calculations"
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: retail_price
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      - name: gross_margin_pct
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: price_tier
+        tests:
+          - accepted_values:
+              values: ['Budget', 'Mid-Range', 'Premium', 'Luxury']
+
+  - name: stg_orders
+    description: "Cleaned orders staging model with date parts"
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_date
+        tests: [not_null]
+
+  - name: stg_order_items
+    description: "Cleaned order items staging model"
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+      - name: quantity
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      - name: unit_price
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+  - name: stg_competitor_prices
+    description: "Cleaned competitor price staging model"
+    columns:
+      - name: competitiveness_flag
+        tests:
+          - accepted_values:
+              values: ['Overpriced', 'Underpriced', 'Competitive']
+
+# ─── Mart Models ─────────────────────────────────────────────────────────────
+
+  - name: dim_customer
+    description: "Customer dimension with SCD Type 1 and RFM-ready attributes"
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: activity_status
+        tests:
+          - accepted_values:
+              values: ['Active', 'At Risk', 'Never Ordered', 'Churned']
+
+  - name: dim_product
+    description: "Product dimension with competitor enrichment"
+    columns:
+      - name: product_key
+        tests: [unique, not_null]
+      - name: product_id
+        tests: [unique, not_null]
+      - name: competitive_position
+        tests:
+          - accepted_values:
+              values: ['Overpriced', 'Underpriced', 'Competitive', 'No Competitor Data']
+
+  - name: dim_date
+    description: "Full date dimension 2023–2026"
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+      - name: date_actual
+        tests: [unique, not_null]
+
+  - name: fct_sales
+    description: "Central sales fact table — one row per order line item"
+    columns:
+      - name: sales_key
+        tests: [unique, not_null]
+      - name: customer_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer')
+              field: customer_key
+      - name: product_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_product')
+              field: product_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: quantity
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+      - name: revenue
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "> 0"
+
+# ─── Analytics Models ─────────────────────────────────────────────────────────
+
+  - name: daily_revenue
+    description: "Pre-aggregated daily revenue with rolling averages and YTD metrics"
+    columns:
+      - name: order_date
+        tests: [unique, not_null]
+
+  - name: top_categories
+    description: "Monthly category performance with MoM growth"
+
+  - name: competitor_pricing_index
+    description: "Category-level competitive pricing health index"
+    columns:
+      - name: pricing_health
+        tests:
+          - accepted_values:
+              values: ['High Risk — Significantly Overpriced',
+                       'Medium Risk — Slightly Overpriced',
+                       'Opportunity — Underpriced',
+                       'Healthy — Competitive Pricing']
+
+  - name: customer_ltv
+    description: "Customer LTV with RFM scoring and segmentation"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: rfm_segment
+        tests:
+          - accepted_values:
+              values: ['Champions', 'Loyal Customers', 'New Customers',
+                       'Potential Loyalists', 'At Risk', 'Cant Lose Them',
+                       'Lost', 'Needs Attention']
+
+  - name: top_customers
+    description: "Ranked top customers by revenue with LTV tier"
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: ltv_tier
+        tests:
+          - accepted_values:
+              values: ['Platinum', 'Gold', 'Silver', 'Bronze']
+
+  - name: most_profitable_products
+    description: "Product profitability rankings with competitive intelligence"
+    columns:
+      - name: product_id
+        tests: [unique, not_null]

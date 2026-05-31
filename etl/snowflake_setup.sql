@@ -1,0 +1,146 @@
+-- =============================================================================
+-- Enterprise Retail Analytics Engine
+-- Snowflake Setup SQL
+-- Run this script as ACCOUNTADMIN or SYSADMIN
+-- =============================================================================
+
+-- ─── 1. Warehouse ────────────────────────────────────────────────────────────
+
+USE ROLE SYSADMIN;
+
+CREATE WAREHOUSE IF NOT EXISTS RETAIL_WH
+    WAREHOUSE_SIZE    = 'X-SMALL'
+    AUTO_SUSPEND      = 120
+    AUTO_RESUME       = TRUE
+    INITIALLY_SUSPENDED = TRUE
+    COMMENT = 'Enterprise Retail Analytics Warehouse';
+
+-- ─── 2. Database & Schemas ───────────────────────────────────────────────────
+
+CREATE DATABASE IF NOT EXISTS RETAIL_DW
+    COMMENT = 'Enterprise Retail Analytics Data Warehouse';
+
+USE DATABASE RETAIL_DW;
+
+CREATE SCHEMA IF NOT EXISTS RAW
+    COMMENT = 'Raw staging layer — loaded from CSV/Python';
+
+CREATE SCHEMA IF NOT EXISTS STAGING
+    COMMENT = 'Cleaned and typed staging models (dbt)';
+
+CREATE SCHEMA IF NOT EXISTS MARTS
+    COMMENT = 'Dimensional model — facts and dimensions (dbt)';
+
+CREATE SCHEMA IF NOT EXISTS ANALYTICS
+    COMMENT = 'Pre-aggregated analytical models (dbt)';
+
+-- ─── 3. File Format for CSV Loading ─────────────────────────────────────────
+
+USE SCHEMA RAW;
+
+CREATE OR REPLACE FILE FORMAT CSV_FORMAT
+    TYPE             = 'CSV'
+    FIELD_DELIMITER  = ','
+    RECORD_DELIMITER = '\n'
+    SKIP_HEADER      = 1
+    FIELD_OPTIONALLY_ENCLOSED_BY = '"'
+    NULL_IF          = ('NULL', 'null', '')
+    EMPTY_FIELD_AS_NULL = TRUE
+    TRIM_SPACE       = TRUE
+    DATE_FORMAT      = 'YYYY-MM-DD'
+    TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS';
+
+-- ─── 4. Staging Tables DDL ───────────────────────────────────────────────────
+
+CREATE OR REPLACE TABLE RAW.STG_CUSTOMERS (
+    CUSTOMER_ID        VARCHAR(20)   NOT NULL,
+    FIRST_NAME         VARCHAR(100)  NOT NULL,
+    LAST_NAME          VARCHAR(100)  NOT NULL,
+    GENDER             VARCHAR(20),
+    EMAIL              VARCHAR(255),
+    CITY               VARCHAR(100),
+    COUNTRY            VARCHAR(100),
+    REGISTRATION_DATE  DATE,
+    _LOADED_AT         TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    CONSTRAINT PK_STG_CUSTOMERS PRIMARY KEY (CUSTOMER_ID)
+);
+
+CREATE OR REPLACE TABLE RAW.STG_PRODUCTS (
+    PRODUCT_ID    VARCHAR(20)     NOT NULL,
+    PRODUCT_NAME  VARCHAR(255)    NOT NULL,
+    CATEGORY      VARCHAR(100),
+    RETAIL_PRICE  NUMBER(10, 2),
+    BASE_COST     NUMBER(10, 2),
+    _LOADED_AT    TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    CONSTRAINT PK_STG_PRODUCTS PRIMARY KEY (PRODUCT_ID)
+);
+
+CREATE OR REPLACE TABLE RAW.STG_ORDERS (
+    ORDER_ID     VARCHAR(20)  NOT NULL,
+    CUSTOMER_ID  VARCHAR(20)  NOT NULL,
+    ORDER_DATE   DATE,
+    _LOADED_AT   TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    CONSTRAINT PK_STG_ORDERS PRIMARY KEY (ORDER_ID)
+);
+
+CREATE OR REPLACE TABLE RAW.STG_ORDER_ITEMS (
+    ORDER_ITEM_ID  VARCHAR(20)    NOT NULL,
+    ORDER_ID       VARCHAR(20)    NOT NULL,
+    PRODUCT_ID     VARCHAR(20)    NOT NULL,
+    QUANTITY       NUMBER(5, 0),
+    UNIT_PRICE     NUMBER(10, 2),
+    _LOADED_AT     TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
+    CONSTRAINT PK_STG_ORDER_ITEMS PRIMARY KEY (ORDER_ITEM_ID)
+);
+
+CREATE OR REPLACE TABLE RAW.STG_COMPETITOR_PRICES (
+    SCRAPED_AT             TIMESTAMP_NTZ,
+    CATEGORY               VARCHAR(100),
+    PRODUCT_NAME           VARCHAR(255),
+    COMPETITOR_NAME        VARCHAR(100),
+    COMPETITOR_PRICE_USD   NUMBER(10, 2),
+    OUR_PRICE_USD          NUMBER(10, 2),
+    PRICE_POSITION         VARCHAR(50),
+    LAST_UPDATED           DATE,
+    PRICE_DELTA_USD        NUMBER(10, 2),
+    PRICE_DELTA_PCT        NUMBER(8, 2),
+    _LOADED_AT             TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+-- ─── 5. Grants ───────────────────────────────────────────────────────────────
+
+-- Create a dedicated role for the ETL process
+CREATE ROLE IF NOT EXISTS RETAIL_ETL_ROLE;
+GRANT USAGE  ON WAREHOUSE RETAIL_WH   TO ROLE RETAIL_ETL_ROLE;
+GRANT USAGE  ON DATABASE  RETAIL_DW   TO ROLE RETAIL_ETL_ROLE;
+GRANT USAGE  ON ALL SCHEMAS IN DATABASE RETAIL_DW TO ROLE RETAIL_ETL_ROLE;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE
+    ON ALL TABLES IN SCHEMA RETAIL_DW.RAW         TO ROLE RETAIL_ETL_ROLE;
+GRANT CREATE TABLE ON SCHEMA RETAIL_DW.RAW        TO ROLE RETAIL_ETL_ROLE;
+GRANT CREATE TABLE ON SCHEMA RETAIL_DW.STAGING    TO ROLE RETAIL_ETL_ROLE;
+GRANT CREATE TABLE ON SCHEMA RETAIL_DW.MARTS      TO ROLE RETAIL_ETL_ROLE;
+GRANT CREATE TABLE ON SCHEMA RETAIL_DW.ANALYTICS  TO ROLE RETAIL_ETL_ROLE;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA RETAIL_DW.STAGING   TO ROLE RETAIL_ETL_ROLE;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA RETAIL_DW.MARTS     TO ROLE RETAIL_ETL_ROLE;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA RETAIL_DW.ANALYTICS TO ROLE RETAIL_ETL_ROLE;
+
+-- ─── 6. Internal Stage for File Uploads ──────────────────────────────────────
+
+CREATE OR REPLACE STAGE RAW.RETAIL_STAGE
+    FILE_FORMAT = CSV_FORMAT
+    COMMENT = 'Internal stage for retail CSV uploads';
+
+-- ─── 7. Verification ─────────────────────────────────────────────────────────
+
+-- Run these after loading to verify row counts
+-- SELECT 'customers'     AS table_name, COUNT(*) AS row_count FROM RAW.STG_CUSTOMERS
+-- UNION ALL
+-- SELECT 'products',     COUNT(*) FROM RAW.STG_PRODUCTS
+-- UNION ALL
+-- SELECT 'orders',       COUNT(*) FROM RAW.STG_ORDERS
+-- UNION ALL
+-- SELECT 'order_items',  COUNT(*) FROM RAW.STG_ORDER_ITEMS
+-- UNION ALL
+-- SELECT 'competitor_prices', COUNT(*) FROM RAW.STG_COMPETITOR_PRICES;
+
+SHOW TABLES IN SCHEMA RAW;

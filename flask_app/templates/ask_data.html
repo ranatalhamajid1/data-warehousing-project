@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Ask Your Data — Retail Analytics Engine{% endblock %}
+{% block page_title %}Ask Your Data{% endblock %}
+{% block page_subtitle %}GenAI natural language interface · Powered by Google Gemini{% endblock %}
+
+{% block content %}
+
+<div class="ask-container" style="max-width:950px;">
+
+  <!-- ── Hero Banner ──────────────────────────────────────────────── -->
+  <div class="glass-card" style="padding:28px; margin-bottom:24px; text-align:center; background:linear-gradient(135deg, rgba(99,102,241,0.08), rgba(14,165,233,0.06)); border:1px solid rgba(99,102,241,0.2);">
+    <div style="font-size:48px; margin-bottom:12px; color:var(--primary); line-height:1;"><i class="bi bi-robot"></i></div>
+    <h1 style="font-size:24px; font-weight:800; margin-bottom:8px;" class="gradient-text">
+      Ask Your Data
+    </h1>
+    <p style="color:var(--text-secondary); font-size:14px; max-width:600px; margin:0 auto;">
+      Type a business question in plain English. Gemini AI will convert it to SQL,
+      execute it against your Snowflake warehouse, and display the results instantly.
+    </p>
+  </div>
+
+  <!-- ── Input Box ────────────────────────────────────────────────── -->
+  <div class="ask-input-group" id="ask-input-group">
+    <span style="font-size:20px; flex-shrink:0; align-self:center; color:var(--accent); display:flex; align-items:center;"><i class="bi bi-stars"></i></span>
+    <textarea id="question-input" class="ask-input" rows="2"
+              placeholder="e.g. Show total revenue for the top 5 customers by country..."></textarea>
+    <button class="btn btn-primary" id="ask-btn" onclick="submitQuestion()" style="align-self:flex-end;">
+      <span id="ask-btn-text"><i class="bi bi-stars"></i> Ask</span>
+      <span id="ask-btn-spinner" class="spinner" style="display:none;"></span>
+    </button>
+  </div>
+
+  <!-- ── Example Questions ────────────────────────────────────────── -->
+  <div style="margin-bottom:24px;">
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; font-weight:500;">
+      <i class="bi bi-lightbulb"></i> Example questions:
+    </p>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;" id="example-questions">
+      {% for q in example_questions %}
+      <button class="btn btn-outline btn-sm example-btn" onclick="useExample(this.dataset.q)" data-q="{{ q }}">
+        {{ q }}
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Results Panel (hidden until first query) ──────────────────── -->
+  <div id="results-wrapper" style="display:none;">
+
+    <!-- Loading State -->
+    <div id="loading-state" style="display:none; text-align:center; padding:40px;">
+      <div class="spinner" style="width:40px; height:40px; margin:0 auto 16px;"></div>
+      <p style="color:var(--text-muted); font-size:14px;">
+        Gemini is thinking... Generating SQL query...
+      </p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="alert alert-error" style="display:none;">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      <span id="error-message">An error occurred.</span>
+    </div>
+
+    <!-- Success State -->
+    <div id="success-state" style="display:none;">
+
+      <!-- Question Echo + Meta -->
+      <div style="padding:16px 20px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:16px;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Your Question</div>
+        <div id="result-question" style="font-size:15px; font-weight:600; color:var(--text-primary);"></div>
+        <div id="result-explanation" style="font-size:13px; color:var(--text-secondary); margin-top:6px;"></div>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <span id="result-rows-badge" class="badge badge-success"></span>
+          <span id="result-live-badge" class="badge badge-neutral"></span>
+          <span id="result-time-badge" class="badge badge-neutral"></span>
+        </div>
+      </div>
+
+      <!-- Generated SQL -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font-size:12px; color:var(--text-muted); font-weight:600; letter-spacing:.5px; text-transform:uppercase;">
+            <i class="bi bi-code-slash"></i> Generated SQL
+          </span>
+          <button class="btn btn-ghost btn-sm" id="copy-sql-btn" onclick="copySQL()">
+            <i class="bi bi-clipboard"></i> Copy
+          </button>
+        </div>
+        <pre class="sql-block" id="sql-display"></pre>
+      </div>
+
+      <!-- Results Table -->
+      <div class="results-panel">
+        <div class="results-header">
+          <span style="font-weight:600; color:var(--text-primary);">
+            <i class="bi bi-table"></i> Query Results
+          </span>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV()">
+            <i class="bi bi-download"></i> Export CSV
+          </button>
+        </div>
+        <div style="overflow-x:auto; max-height:450px; overflow-y:auto;">
+          <table class="data-table" id="results-table">
+            <thead id="results-thead"></thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /success-state -->
+
+  </div><!-- /results-wrapper -->
+
+  <!-- ── Previous Queries History ─────────────────────────────────── -->
+  <div id="query-history-section" style="margin-top:28px; display:none;">
+    <div class="section-header">
+      <div class="section-title"><i class="bi bi-clock-history"></i> Query History</div>
+      <button class="btn btn-ghost btn-sm" onclick="clearHistory()">Clear</button>
+    </div>
+    <div id="query-history-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+
+</div><!-- /ask-container -->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentSQL = '';
+let currentResults = [];
+let currentColumns = [];
+let queryHistory = [];
+const startTime = Date.now();
+
+// Pre-fill from URL query param
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const q = params.get('q');
+  if (q) {
+    document.getElementById('question-input').value = q;
+    submitQuestion();
+  }
+});
+
+function useExample(question) {
+  document.getElementById('question-input').value = question;
+  document.getElementById('question-input').focus();
+  submitQuestion();
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('ask-btn');
+  const txt = document.getElementById('ask-btn-text');
+  const spi = document.getElementById('ask-btn-spinner');
+  btn.disabled = loading;
+  txt.style.display = loading ? 'none' : 'flex';
+  spi.style.display = loading ? 'inline-block' : 'none';
+  document.getElementById('results-wrapper').style.display = 'block';
+  document.getElementById('loading-state').style.display = loading ? 'block' : 'none';
+  document.getElementById('error-state').style.display = 'none';
+  document.getElementById('success-state').style.display = 'none';
+}
+
+async function submitQuestion() {
+  const question = document.getElementById('question-input').value.trim();
+  if (!question) {
+    document.getElementById('question-input').focus();
+    return;
+  }
+
+  setLoading(true);
+  const t0 = performance.now();
+
+  try {
+    const resp = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+
+    const data = await resp.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+    setLoading(false);
+
+    if (data.error) {
+      document.getElementById('error-state').style.display = 'flex';
+      document.getElementById('error-message').textContent = data.error;
+      return;
+    }
+
+    // Success
+    currentSQL     = data.sql || '';
+    currentResults = data.results || [];
+    currentColumns = data.columns || [];
+
+    document.getElementById('success-state').style.display = 'block';
+    document.getElementById('result-question').textContent = data.question;
+    document.getElementById('result-explanation').textContent = data.explanation || '';
+    document.getElementById('result-rows-badge').textContent = `${data.row_count} rows returned`;
+    document.getElementById('result-live-badge').textContent = data.live_data ? '🟢 Live Snowflake' : '🟡 Demo Mode';
+    document.getElementById('result-time-badge').textContent = `⚡ ${elapsed}s`;
+
+    // SQL display with highlighting
+    document.getElementById('sql-display').innerHTML = highlightSQL(currentSQL);
+
+    // Results table
+    renderResultsTable(currentColumns, currentResults);
+
+    // History
+    addToHistory(question, data.row_count, elapsed);
+
+  } catch (err) {
+    setLoading(false);
+    document.getElementById('error-state').style.display = 'flex';
+    document.getElementById('error-message').textContent = 'Network error: ' + err.message;
+  }
+}
+
+function renderResultsTable(columns, rows) {
+  // Header
+  const thead = document.getElementById('results-thead');
+  thead.innerHTML = '<tr>' + columns.map(c =>
+    `<th>${c.replace(/_/g,' ').toUpperCase()}</th>`
+  ).join('') + '</tr>';
+
+  // Body
+  const tbody = document.getElementById('results-tbody');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + columns.length + '" style="text-align:center; padding:30px; color:var(--text-muted);">No results returned</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row =>
+    '<tr>' + columns.map(col => {
+      const val = row[col];
+      const formatted = formatCell(col, val);
+      return `<td>${formatted}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+}
+
+function formatCell(col, val) {
+  if (val === null || val === undefined) return '<span style="color:var(--text-muted);">NULL</span>';
+  const colLower = col.toLowerCase();
+  if (colLower.includes('revenue') || colLower.includes('ltv') || colLower.includes('price') ||
+      colLower.includes('margin') || colLower.includes('value') || colLower.includes('cost')) {
+    const num = parseFloat(val);
+    if (!isNaN(num)) return `<span style="color:var(--success); font-weight:600;">$${num.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
+  }
+  if (colLower.includes('pct') || colLower.includes('percent') || colLower.includes('rate') || colLower.includes('growth')) {
+    const num = parseFloat(val);
+    if (!isNaN(num)) return `<span class="badge ${num >= 0 ? 'badge-success' : 'badge-danger'}">${num.toFixed(1)}%</span>`;
+  }
+  if (colLower.includes('rank') && !isNaN(parseInt(val))) {
+    const n = parseInt(val);
+    return `<span class="rank-number ${n===1?'rank-1':n===2?'rank-2':n===3?'rank-3':'rank-n'}">${n}</span>`;
+  }
+  const num = parseFloat(val);
+  if (!isNaN(num) && Number.isInteger(num) && Math.abs(num) > 1000) {
+    return num.toLocaleString();
+  }
+  return String(val);
+}
+
+function copySQL() {
+  navigator.clipboard.writeText(currentSQL).then(() => {
+    showToast('SQL copied to clipboard!', 'success');
+  });
+}
+
+function exportCSV() {
+  if (!currentResults.length) return;
+  const rows = [currentColumns.join(',')];
+  currentResults.forEach(row => {
+    rows.push(currentColumns.map(c => {
+      const v = row[c];
+      if (v === null || v === undefined) return '';
+      return String(v).includes(',') ? `"${v}"` : v;
+    }).join(','));
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'query_results.csv';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('CSV downloaded!', 'success');
+}
+
+function addToHistory(question, rowCount, elapsed) {
+  queryHistory.unshift({ question, rowCount, elapsed, time: new Date().toLocaleTimeString() });
+  if (queryHistory.length > 10) queryHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const section = document.getElementById('query-history-section');
+  const list = document.getElementById('query-history-list');
+  if (!queryHistory.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  list.innerHTML = queryHistory.map((h, i) => `
+    <div style="display:flex; align-items:center; gap:12px; padding:10px 14px;
+         background:var(--bg-card); border:1px solid var(--border);
+         border-radius:var(--radius-sm); cursor:pointer; transition:border-color .2s;"
+         onclick="replayHistory(${i})"
+         onmouseover="this.style.borderColor='var(--primary)'"
+         onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:16px; color:var(--text-muted); display:flex; align-items:center;"><i class="bi bi-clock"></i></span>
+      <span style="flex:1; font-size:13px; color:var(--text-primary);">${h.question}</span>
+      <span class="badge badge-neutral">${h.rowCount} rows</span>
+      <span style="font-size:11px; color:var(--text-muted);">${h.time}</span>
+    </div>
+  `).join('');
+}
+
+function replayHistory(idx) {
+  const h = queryHistory[idx];
+  document.getElementById('question-input').value = h.question;
+  submitQuestion();
+}
+
+function clearHistory() {
+  queryHistory = [];
+  renderHistory();
+}
+
+// Allow Enter to submit (Ctrl+Enter or Shift+Enter for newline)
+document.getElementById('question-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+    e.preventDefault();
+    submitQuestion();
+  }
+});
+</script>
+{% endblock %}

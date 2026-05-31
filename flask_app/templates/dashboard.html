@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Retail Analytics Engine{% endblock %}
+{% block page_title %}Executive Dashboard{% endblock %}
+{% block page_subtitle %}Key performance indicators · Real-time overview{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI Cards ──────────────────────────────────────────────────── -->
+<div class="kpi-grid">
+
+  <div class="kpi-card">
+    <div class="kpi-icon blue"><i class="bi bi-currency-dollar"></i></div>
+    <div class="kpi-label">Total Revenue</div>
+    <div class="kpi-value">
+      $<span class="count-up" data-count="{{ kpi.total_revenue }}" data-prefix="" data-suffix="">
+        {{ '{:,.0f}'.format(kpi.total_revenue) }}
+      </span>
+    </div>
+    <div class="kpi-change positive">
+      <i class="bi bi-arrow-up-short"></i> {{ kpi.yoy_growth }}% vs last year
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i class="bi bi-bag-check-fill"></i></div>
+    <div class="kpi-label">Total Orders</div>
+    <div class="kpi-value">
+      <span class="count-up" data-count="{{ kpi.total_orders }}">
+        {{ '{:,}'.format(kpi.total_orders) }}
+      </span>
+    </div>
+    <div class="kpi-change positive">
+      <i class="bi bi-arrow-up-short"></i> 50K transactions
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon cyan"><i class="bi bi-people-fill"></i></div>
+    <div class="kpi-label">Active Customers</div>
+    <div class="kpi-value">
+      <span class="count-up" data-count="{{ kpi.unique_customers }}">
+        {{ '{:,}'.format(kpi.unique_customers) }}
+      </span>
+    </div>
+    <div class="kpi-change positive">
+      <i class="bi bi-arrow-up-short"></i> 83.4% of base
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i class="bi bi-receipt"></i></div>
+    <div class="kpi-label">Avg Order Value</div>
+    <div class="kpi-value">
+      $<span class="count-up" data-count="{{ kpi.avg_order_value }}">
+        {{ '{:.2f}'.format(kpi.avg_order_value) }}
+      </span>
+    </div>
+    <div class="kpi-change positive">
+      <i class="bi bi-arrow-up-short"></i> +$12.40 vs Q3
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon violet"><i class="bi bi-graph-up"></i></div>
+    <div class="kpi-label">Gross Margin</div>
+    <div class="kpi-value">
+      $<span class="count-up" data-count="{{ kpi.total_margin }}">
+        {{ '{:,.0f}'.format(kpi.total_margin) }}
+      </span>
+    </div>
+    <div class="kpi-change positive">
+      <i class="bi bi-arrow-up-short"></i> {{ '{:.1f}'.format(kpi.avg_margin_pct) }}% margin rate
+    </div>
+  </div>
+
+</div><!-- /kpi-grid -->
+
+<!-- ── Revenue Chart + Category Breakdown ─────────────────────────── -->
+<div class="chart-grid chart-grid-2">
+
+  <!-- Daily Revenue Trend -->
+  <div class="chart-card" style="grid-column: span 1;">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">Revenue Trend</div>
+        <div class="chart-card-subtitle">Last 30 days — daily revenue & margin</div>
+      </div>
+      <span class="badge badge-info">Live</span>
+    </div>
+    <div style="height:250px; position:relative;">
+      <canvas id="dashboard-revenue-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Category Revenue Donut -->
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">Revenue by Category</div>
+        <div class="chart-card-subtitle">Full year 2024</div>
+      </div>
+    </div>
+    <div style="height:250px; position:relative;">
+      <canvas id="dashboard-category-chart"></canvas>
+    </div>
+  </div>
+
+</div><!-- /chart-grid -->
+
+<!-- ── Category Table + Top Products ──────────────────────────────── -->
+<div class="chart-grid chart-grid-2">
+
+  <!-- Category Performance Table -->
+  <div class="table-card">
+    <div class="table-card-header">
+      <span class="table-card-title">Category Performance</span>
+      <a href="{{ url_for('products') }}" class="btn btn-ghost btn-sm">
+        View All <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+    <table class="data-table" id="category-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Category</th>
+          <th>Revenue</th>
+          <th>Margin %</th>
+          <th>Orders</th>
+          <th>Share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set total_rev = categories | sum(attribute='revenue') %}
+        {% for cat in categories %}
+        <tr>
+          <td>
+            <span class="rank-number {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-n{% endif %}">
+              {{ loop.index }}
+            </span>
+          </td>
+          <td style="font-weight:500; color:var(--text-primary);">{{ cat.category }}</td>
+          <td>${{ '{:,.0f}'.format(cat.revenue) }}</td>
+          <td>
+            <span class="badge {% if cat.margin_pct >= 45 %}badge-success{% elif cat.margin_pct >= 30 %}badge-info{% else %}badge-warning{% endif %}">
+              {{ '{:.1f}'.format(cat.margin_pct) }}%
+            </span>
+          </td>
+          <td>{{ '{:,}'.format(cat.orders) }}</td>
+          <td style="min-width:80px;">
+            {% set share = (cat.revenue / total_rev * 100) | round(1) %}
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" style="width:{{ share }}%"></div>
+            </div>
+            <span style="font-size:11px; color:var(--text-muted);">{{ share }}%</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Quick Stats Cards -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="chart-card">
+      <div class="chart-card-title" style="margin-bottom:16px;"><i class="bi bi-graph-up-arrow text-success"></i> Performance Highlights</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(16,185,129,.08); border-radius:8px; border:1px solid rgba(16,185,129,.2);">
+          <span style="font-size:13px; color:var(--text-secondary);">Best Category</span>
+          <span style="font-size:13px; font-weight:600; color:var(--success);">Electronics $2.1M</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(99,102,241,.08); border-radius:8px; border:1px solid rgba(99,102,241,.2);">
+          <span style="font-size:13px; color:var(--text-secondary);">Highest Margin</span>
+          <span style="font-size:13px; font-weight:600; color:var(--primary-light);">Beauty 52.3%</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(245,158,11,.08); border-radius:8px; border:1px solid rgba(245,158,11,.2);">
+          <span style="font-size:13px; color:var(--text-secondary);">Peak Month</span>
+          <span style="font-size:13px; font-weight:600; color:var(--warning);">Dec 2024 $964K</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(6,182,212,.08); border-radius:8px; border:1px solid rgba(6,182,212,.2);">
+          <span style="font-size:13px; color:var(--text-secondary);">Top Country</span>
+          <span style="font-size:13px; font-weight:600; color:var(--info);">United States 35%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-title" style="margin-bottom:14px;"><i class="bi bi-robot text-primary"></i> Quick AI Query</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Ask your data anything in plain English</p>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="quick-ask-input" class="filter-input" style="flex:1;"
+               placeholder="Top 5 customers by revenue..." />
+        <a href="{{ url_for('ask_data') }}" class="btn btn-primary btn-sm" id="quick-ask-btn">
+          <i class="bi bi-stars"></i>
+        </a>
+      </div>
+      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+        <button class="btn btn-ghost btn-sm quick-question-btn" style="font-size:11px;" data-q="Show monthly revenue">Monthly Revenue</button>
+        <button class="btn btn-ghost btn-sm quick-question-btn" style="font-size:11px;" data-q="Top 10 customers">Top Customers</button>
+        <button class="btn btn-ghost btn-sm quick-question-btn" style="font-size:11px;" data-q="Best margin products">Best Margins</button>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /chart-grid-2 -->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  // ── Revenue Trend Chart ─────────────────────────────────────────────
+  const daily = {{ daily | tojson }};
+  const labels  = daily.map(d => {
+    const dt = new Date(d.date);
+    return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  });
+  createRevenueChart(
+    'dashboard-revenue-chart',
+    labels,
+    daily.map(d => d.revenue),
+    daily.map(d => d.margin)
+  );
+
+  // ── Category Donut Chart ────────────────────────────────────────────
+  const cats = {{ categories | tojson }};
+  createDonutChart(
+    'dashboard-category-chart',
+    cats.map(c => c.category),
+    cats.map(c => c.revenue)
+  );
+
+  // ── Quick Ask Redirect ──────────────────────────────────────────────
+  document.querySelectorAll('.quick-question-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = btn.dataset.q;
+      document.getElementById('quick-ask-input').value = q;
+      window.location.href = `/ask-data?q=${encodeURIComponent(q)}`;
+    });
+  });
+
+  document.getElementById('quick-ask-btn').addEventListener('click', (e) => {
+    const q = document.getElementById('quick-ask-input').value.trim();
+    if (q) {
+      e.preventDefault();
+      window.location.href = `/ask-data?q=${encodeURIComponent(q)}`;
+    }
+  });
+
+});
+</script>
+{% endblock %}

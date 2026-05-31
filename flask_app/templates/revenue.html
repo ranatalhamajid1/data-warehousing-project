@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Revenue Analytics — Retail Analytics Engine{% endblock %}
+{% block page_title %}Revenue Analytics{% endblock %}
+{% block page_subtitle %}Daily trends · Monthly breakdown · Category performance{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter Bar ──────────────────────────────────────────────────── -->
+<div class="filter-bar" id="revenue-filter-bar">
+  <label for="days-select"><i class="bi bi-calendar3"></i> Date Range:</label>
+  <select id="days-select" class="filter-select" onchange="updateDays(this.value)">
+    <option value="30"  {% if days == 30  %}selected{% endif %}>Last 30 Days</option>
+    <option value="90"  {% if days == 90  %}selected{% endif %}>Last 90 Days</option>
+    <option value="180" {% if days == 180 %}selected{% endif %}>Last 180 Days</option>
+    <option value="365" {% if days == 365 %}selected{% endif %}>Full Year 2024</option>
+  </select>
+  <div style="margin-left:auto; display:flex; gap:8px;">
+    <span id="total-revenue-badge" class="badge badge-success" style="font-size:13px; padding:6px 12px;">
+      Total: Calculating...
+    </span>
+  </div>
+</div>
+
+<!-- ── Main Revenue Chart ──────────────────────────────────────────── -->
+<div class="chart-card" style="margin-bottom:20px;">
+  <div class="chart-card-header">
+    <div>
+      <div class="chart-card-title">Daily Revenue & Margin</div>
+      <div class="chart-card-subtitle" id="revenue-chart-subtitle">Loading chart data...</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-ghost btn-sm" id="toggle-margin-btn" onclick="toggleMarginLine()">
+        <i class="bi bi-eye"></i> Toggle Margin
+      </button>
+    </div>
+  </div>
+  <div style="height:320px; position:relative;">
+    <canvas id="revenue-chart-main"></canvas>
+  </div>
+</div>
+
+<!-- ── Monthly Breakdown + Category Revenue ────────────────────────── -->
+<div class="chart-grid chart-grid-2" style="margin-bottom:20px;">
+
+  <!-- Monthly Bar Chart -->
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">Monthly Revenue</div>
+        <div class="chart-card-subtitle">Aggregated monthly totals for 2024</div>
+      </div>
+    </div>
+    <div style="height:260px; position:relative;">
+      <canvas id="monthly-bar-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- Category Revenue Horizontal Bar -->
+  <div class="chart-card">
+    <div class="chart-card-header">
+      <div>
+        <div class="chart-card-title">Revenue by Category</div>
+        <div class="chart-card-subtitle">Ranked by total revenue contribution</div>
+      </div>
+    </div>
+    <div style="height:260px; position:relative;">
+      <canvas id="category-hbar-chart"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Revenue Stats Table ─────────────────────────────────────────── -->
+<div class="table-card">
+  <div class="table-card-header">
+    <span class="table-card-title"><i class="bi bi-calendar-check text-success"></i> Daily Revenue Detail</span>
+    <span class="badge badge-neutral" id="row-count-badge">Loading...</span>
+  </div>
+  <div style="overflow-x:auto; max-height:400px; overflow-y:auto;">
+    <table class="data-table" id="revenue-detail-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Day</th>
+          <th>Orders</th>
+          <th>Revenue</th>
+          <th>Margin</th>
+          <th>Margin %</th>
+          <th>Trend</th>
+        </tr>
+      </thead>
+      <tbody id="revenue-table-body">
+        <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const allDaily = {{ daily | tojson }};
+let revenueChartInstance = null;
+let showMargin = true;
+
+function updateDays(days) {
+  window.location.href = `/revenue?days=${days}`;
+}
+
+function buildRevenueTable(data) {
+  const tbody = document.getElementById('revenue-table-body');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html = '';
+  const reversed = [...data].reverse();
+  reversed.forEach((d, i) => {
+    const prevRev = reversed[i + 1] ? reversed[i + 1].revenue : d.revenue;
+    const trend = d.revenue > prevRev ? '<i class="bi bi-caret-up-fill"></i>' : d.revenue < prevRev ? '<i class="bi bi-caret-down-fill"></i>' : '<span style="opacity: 0.5;">—</span>';
+    const trendColor = d.revenue > prevRev ? 'var(--success)' : d.revenue < prevRev ? 'var(--danger)' : 'var(--text-muted)';
+    const marginPct = d.revenue > 0 ? (d.margin / d.revenue * 100).toFixed(1) : '0.0';
+    const dt = new Date(d.date);
+    const dayName = days[dt.getDay()];
+    const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+    html += `
+      <tr>
+        <td style="font-weight:500; color:var(--text-primary);">${d.date}</td>
+        <td><span class="badge ${isWeekend ? 'badge-info' : 'badge-neutral'}">${dayName}</span></td>
+        <td>${d.orders ? d.orders.toLocaleString() : '—'}</td>
+        <td style="font-weight:600;">$${Number(d.revenue).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+        <td>$${Number(d.margin).toLocaleString(undefined,{maximumFractionDigits:0})}</td>
+        <td><span class="badge ${parseFloat(marginPct)>=40 ? 'badge-success' : parseFloat(marginPct)>=25 ? 'badge-info' : 'badge-warning'}">${marginPct}%</span></td>
+        <td style="color:${trendColor}; font-weight:700;">${trend}</td>
+      </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function toggleMarginLine() {
+  showMargin = !showMargin;
+  if (revenueChartInstance) {
+    revenueChartInstance.data.datasets[1].hidden = !showMargin;
+    revenueChartInstance.update();
+  }
+}
+
+function computeMonthly(data) {
+  const months = {};
+  data.forEach(d => {
+    const dt = new Date(d.date);
+    const key = dt.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+    if (!months[key]) months[key] = 0;
+    months[key] += d.revenue;
+  });
+  return { labels: Object.keys(months), values: Object.values(months) };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const data = allDaily;
+
+  // Total revenue badge
+  const totalRev = data.reduce((s, d) => s + d.revenue, 0);
+  document.getElementById('total-revenue-badge').textContent =
+    `Total: $${(totalRev/1000).toFixed(0)}K`;
+
+  const subtitle = document.getElementById('revenue-chart-subtitle');
+  subtitle.textContent = `${data[0]?.date} → ${data[data.length-1]?.date} (${data.length} days)`;
+
+  const labels = data.map(d => {
+    const dt = new Date(d.date);
+    return dt.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  });
+
+  // Main Revenue Chart
+  revenueChartInstance = createRevenueChart(
+    'revenue-chart-main',
+    labels,
+    data.map(d => d.revenue),
+    data.map(d => d.margin)
+  );
+
+  // Monthly Bar Chart
+  const monthly = computeMonthly(data);
+  createVBarChart('monthly-bar-chart', monthly.labels, [
+    {
+      label: 'Revenue',
+      data: monthly.values,
+      backgroundColor: 'rgba(99,102,241,0.7)',
+      borderColor: '#6366f1',
+      borderWidth: 2,
+      borderRadius: 6,
+    }
+  ]);
+
+  // Category HBar (static from categories passed)
+  const cats = {{ categories | tojson }};
+  createHBarChart(
+    'category-hbar-chart',
+    cats.map(c => c.category),
+    cats.map(c => c.revenue),
+    'Revenue'
+  );
+
+  // Detail Table
+  buildRevenueTable(data);
+  document.getElementById('row-count-badge').textContent = `${data.length} days`;
+});
+</script>
+{% endblock %}

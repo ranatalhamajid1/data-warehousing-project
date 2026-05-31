@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Data files (generated — do not commit large CSVs)
+data/*.csv
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Flask
+flask_app/__pycache__/
+flask_app/*.pyc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dist/Build
+dist/
+build/
+*.egg-info/
