@@ -117,48 +117,50 @@
   <div class="table-card-header">
     <span class="table-card-title"><i class="bi bi-search text-info"></i> Competitive Pricing Intelligence</span>
   </div>
-  <table class="data-table" id="competitor-table">
-    <thead>
-      <tr>
-        <th>Category</th>
-        <th>Price Index</th>
-        <th>Our Avg Price</th>
-        <th>Competitor Avg</th>
-        <th>Overpriced</th>
-        <th>Underpriced</th>
-        <th>Competitive</th>
-        <th>Health Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in competitor_data %}
-      <tr>
-        <td style="font-weight:500; color:var(--text-primary);">{{ row.category }}</td>
-        <td>
-          <span class="badge {% if row.price_index > 105 %}badge-danger{% elif row.price_index < 95 %}badge-success{% else %}badge-info{% endif %}">
-            {{ row.price_index }}
-          </span>
-        </td>
-        <td>${{ '{:.2f}'.format(row.avg_our_retail_price if row.avg_our_retail_price is defined else 0) }}</td>
-        <td>${{ '{:.2f}'.format(row.avg_competitor_price if row.avg_competitor_price is defined else 0) }}</td>
-        <td style="color:var(--danger);">{{ row.overpriced }}</td>
-        <td style="color:var(--success);">{{ row.underpriced }}</td>
-        <td style="color:var(--info);">{{ row.competitive }}</td>
-        <td>
-          {% if 'High Risk' in row.pricing_health %}
-            <span class="badge badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ row.pricing_health }}</span>
-          {% elif 'Medium' in row.pricing_health %}
-            <span class="badge badge-warning"><i class="bi bi-lightning-charge-fill text-dark"></i> {{ row.pricing_health }}</span>
-          {% elif 'Opportunity' in row.pricing_health %}
-            <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> {{ row.pricing_health }}</span>
-          {% else %}
-            <span class="badge badge-info"><i class="bi bi-check"></i> {{ row.pricing_health }}</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-responsive">
+    <table class="data-table" id="competitor-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Price Index</th>
+          <th>Our Avg Price</th>
+          <th>Competitor Avg</th>
+          <th>Overpriced</th>
+          <th>Underpriced</th>
+          <th>Competitive</th>
+          <th>Health Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in competitor_data %}
+        <tr>
+          <td style="font-weight:500; color:var(--text-primary);">{{ row.category }}</td>
+          <td>
+            <span class="badge {% if row.price_index > 105 %}badge-danger{% elif row.price_index < 95 %}badge-success{% else %}badge-info{% endif %}">
+              {{ row.price_index }}
+            </span>
+          </td>
+          <td>${{ '{:.2f}'.format(row.avg_our_retail_price if row.avg_our_retail_price is defined else 0) }}</td>
+          <td>${{ '{:.2f}'.format(row.avg_competitor_price if row.avg_competitor_price is defined else 0) }}</td>
+          <td style="color:var(--danger);">{{ row.overpriced }}</td>
+          <td style="color:var(--success);">{{ row.underpriced }}</td>
+          <td style="color:var(--info);">{{ row.competitive }}</td>
+          <td>
+            {% if 'High Risk' in row.pricing_health %}
+              <span class="badge badge-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ row.pricing_health }}</span>
+            {% elif 'Medium' in row.pricing_health %}
+              <span class="badge badge-warning"><i class="bi bi-lightning-charge-fill text-dark"></i> {{ row.pricing_health }}</span>
+            {% elif 'Opportunity' in row.pricing_health %}
+              <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> {{ row.pricing_health }}</span>
+            {% else %}
+              <span class="badge badge-info"><i class="bi bi-check"></i> {{ row.pricing_health }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 {% endblock %}

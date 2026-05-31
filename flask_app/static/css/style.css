@@ -823,7 +823,31 @@ body {
   background-clip: text;
 }
 
-/* ── Responsive ────────────────────────────────────────────── */
+/* ── Sidebar Mobile Overlay Backdrop ───────────────────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 99;
+  transition: opacity 0.3s ease;
+}
+.sidebar-overlay.active {
+  display: block;
+}
+
+/* ── Table Responsiveness Utility ──────────────────────────── */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Responsive media queries ──────────────────────────────── */
 @media (max-width: 1100px) {
   .chart-grid-2 { grid-template-columns: 1fr; }
   .chart-grid-3 { grid-template-columns: 1fr; }
@@ -832,9 +856,11 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
+    box-shadow: none;
   }
   .sidebar.open {
     transform: translateX(0);
+    box-shadow: var(--shadow-lg);
   }
   .main-content {
     margin-left: 0;
@@ -844,6 +870,45 @@ body {
   }
   .page-content {
     padding: 16px;
+  }
+  .topbar {
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 576px) {
+  .topbar-subtitle {
+    display: none; /* Hide subtitle to save vertical space on mobile */
+  }
+  .theme-toggle-group {
+    margin: 0 4px !important;
+  }
+  .theme-btn {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Stack AI search block vertically on tiny screens */
+  .ask-input-group {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: var(--radius) !important;
+  }
+  .ask-input-group button {
+    align-self: stretch !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  #live-clock {
+    display: none; /* Hide live clock on mobile to make room */
+  }
+  .topbar-title {
+    font-size: 15px;
   }
 }
 
