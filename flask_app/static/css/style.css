@@ -874,6 +874,12 @@ body {
   .topbar {
     padding: 0 16px;
   }
+  .topbar-subtitle {
+    display: none !important; /* Hide subtitle under 768px to prevent vertical text overlap */
+  }
+  #live-clock {
+    display: none !important; /* Hide clock under 768px to save topbar space */
+  }
 }
 
 @media (max-width: 576px) {
