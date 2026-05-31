@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: retail-analytics-engine
+    runtime: python
+    buildCommand: pip install -r flask_app/requirements.txt
+    startCommand: cd flask_app && gunicorn app:app
+    envVars:
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: "5000"
+      # Secure placeholders to be filled in Render Dashboard:
+      - key: SNOWFLAKE_ACCOUNT
+        sync: false
+      - key: SNOWFLAKE_USER
+        sync: false
+      - key: SNOWFLAKE_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SNOWFLAKE_WAREHOUSE
+        value: "RETAIL_WH"
+      - key: SNOWFLAKE_DATABASE
+        value: "RETAIL_DW"
+      - key: SNOWFLAKE_SCHEMA
+        value: "MARTS"
+      - key: SNOWFLAKE_ROLE
+        value: "SYSADMIN"
