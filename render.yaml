@@ -3,7 +3,7 @@ services:
     name: retail-analytics-engine
     runtime: python
     buildCommand: pip install -r flask_app/requirements.txt
-    startCommand: cd flask_app && gunicorn app:app
+    startCommand: cd flask_app && gunicorn -w 4 -b 0.0.0.0:$PORT app:app
     envVars:
       - key: FLASK_DEBUG
         value: "false"
