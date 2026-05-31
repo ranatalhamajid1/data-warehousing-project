@@ -257,7 +257,7 @@ function createDonutChart(canvasId, labels, values, title = '') {
         easing: 'easeOutBack'
       },
       plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12 } },
+        legend: { position: window.innerWidth < 576 ? 'bottom' : 'right', labels: { boxWidth: 12 } },
         tooltip: {
           callbacks: {
             label: ctx => {
