@@ -150,11 +150,68 @@ def generate_products(n: int = NUM_PRODUCTS) -> pd.DataFrame:
     categories = list(CATEGORIES.keys())
     cat_weights = [CATEGORIES[c]["weight"] for c in categories]
 
+    # Load competitor products from HTML to inject
+    import re
+    from bs4 import BeautifulSoup
+    comp_prods = []
+    html_path = os.path.join(os.path.dirname(__file__), "..", "scraper", "competitor_products.html")
+    if os.path.exists(html_path):
+        try:
+            with open(html_path, encoding="utf-8") as fh:
+                soup = BeautifulSoup(fh, "html.parser")
+            tables = soup.find_all("table", class_="product-table")
+            seen_names = set()
+            for table in tables:
+                category = table.get("data-category", "Unknown")
+                # Normalize category name just in case
+                if category == "Home &amp; Garden" or "Home" in category:
+                    category = "Home & Garden"
+                rows = table.find("tbody").find_all("tr")
+                for row in rows:
+                    cells = row.find_all("td")
+                    if len(cells) < 6:
+                        continue
+                    name = cells[0].get_text(strip=True)
+                    if name in seen_names:
+                        continue
+                    seen_names.add(name)
+                    
+                    our_price_str = cells[3].get_text(strip=True)
+                    our_price = float(re.sub(r"[^\d.]", "", our_price_str))
+                    
+                    comp_prods.append({
+                        "product_name": name,
+                        "category": category,
+                        "retail_price": our_price
+                    })
+            print(f"   [OK] Loaded {len(comp_prods)} competitor products to inject")
+        except Exception as e:
+            print(f"   [WARNING] Failed to load competitor products for injection: {e}")
+            comp_prods = []
+
     rows = []
-    used_names: dict = {cat: [] for cat in categories}
     product_counter = 1
 
-    for _ in range(n):
+    # Inject competitor products
+    for cp in comp_prods:
+        cat = cp["category"]
+        cfg = CATEGORIES.get(cat, {"margin_range": (0.25, 0.50)})
+        retail_price = cp["retail_price"]
+        margin_rate = random.uniform(*cfg["margin_range"])
+        base_cost = round(retail_price * (1 - margin_rate), 2)
+        
+        rows.append({
+            "product_id":    f"PROD-{product_counter:04d}",
+            "product_name":  cp["product_name"],
+            "category":      cat,
+            "retail_price":  retail_price,
+            "base_cost":     base_cost,
+        })
+        product_counter += 1
+
+    # Generate remaining products to reach N
+    remaining_count = max(0, n - len(rows))
+    for _ in range(remaining_count):
         cat = np.random.choice(categories, p=cat_weights)
         cfg = CATEGORIES[cat]
         base_names = PRODUCT_NAMES[cat]
@@ -179,7 +236,7 @@ def generate_products(n: int = NUM_PRODUCTS) -> pd.DataFrame:
         product_counter += 1
 
     df = pd.DataFrame(rows)
-    print(f"   [OK] {len(df):,} products generated")
+    print(f"   [OK] {len(df):,} products generated ({len(comp_prods)} injected)")
     return df
 
 
