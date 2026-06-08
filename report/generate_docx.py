@@ -126,9 +126,24 @@ def build_report():
     # Course Meta
     p_meta = doc.add_paragraph()
     p_meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_meta.paragraph_format.space_after = Pt(48)
-    r_meta = p_meta.add_run("Course: Data Warehousing and Business Intelligence\nSubmission Date: May 2026\nUniversity Capstone Project Submission")
+    p_meta.paragraph_format.space_after = Pt(24)
+    r_meta = p_meta.add_run("Course: Data Warehousing and Business Intelligence\nSubmission Date: June 12, 2026\nUniversity Capstone Project Submission\n\n\nSubmitted By:\n\n")
     apply_text_formatting(r_meta, font_name='Inter', size_pt=10.5, color=COLOR_MUTED)
+    
+    # Highlighted Rana Talha Majid
+    r_lead = p_meta.add_run("★ RANA TALHA MAJID (23-CS-127) — Project Lead\n")
+    apply_text_formatting(r_lead, font_name='Inter', size_pt=12, bold=True, color=COLOR_PRIMARY)
+    r_lead_email = p_meta.add_run("Email: 23-cs-127@students.uettaxila.edu.pk\n\n")
+    apply_text_formatting(r_lead_email, font_name='Inter', size_pt=9.5, italic=True, color=COLOR_MUTED)
+    
+    # Other group partners
+    r_members = p_meta.add_run(
+        "Muhammad Ibtasam Ali (23-CS-88)\n"
+        "Email: 23-cs-88@students.uettaxila.edu.pk\n\n"
+        "Ahmed Muneer (23-CS-91)\n"
+        "Email: 23-cs-91@students.uettaxila.edu.pk\n"
+    )
+    apply_text_formatting(r_members, font_name='Inter', size_pt=10, color=COLOR_DARK)
     
     doc.add_page_break()
 

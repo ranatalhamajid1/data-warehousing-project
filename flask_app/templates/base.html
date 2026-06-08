@@ -88,15 +88,35 @@
 
     </nav>
 
-    <div class="sidebar-footer">
+    <div class="sidebar-footer" style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 12px;">
       <div class="connection-badge">
         {% if snowflake_live %}
           <div class="status-dot live"></div>
-          <span style="color:var(--success); font-size:12px;">Snowflake Live</span>
+          <span style="color:var(--success); font-size:12px; font-weight: 500;">Snowflake Live</span>
         {% else %}
           <div class="status-dot demo"></div>
-          <span style="color:var(--warning); font-size:12px;">Demo Mode</span>
+          <span style="color:var(--warning); font-size:12px; font-weight: 500;">Demo Mode</span>
         {% endif %}
+      </div>
+      
+      <div class="submitted-by-section" style="padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.08);">
+        <div style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600;">Submitted By:</div>
+        
+        <!-- Highlighted Rana Talha Majid -->
+        <div class="user-member-badge" style="background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px;">
+          <div style="font-size: 11px; font-weight: 700; color: #818cf8;"><i class="bi bi-star-fill" style="color: #f59e0b; margin-right: 4px; font-size: 9px;"></i>Rana Talha Majid</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Roll: 23-CS-127</div>
+          <div style="font-size: 8.5px; color: var(--text-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="23-cs-127@students.uettaxila.edu.pk">23-cs-127@students.uettaxila.edu.pk</div>
+        </div>
+
+        <div style="padding-left: 4px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="font-size: 10.5px; font-weight: 500; color: var(--text-muted);">
+            Muhammad Ibtasam Ali <span style="font-size: 9px; color: rgba(255,255,255,0.35);">(23-CS-88)</span>
+          </div>
+          <div style="font-size: 10.5px; font-weight: 500; color: var(--text-muted);">
+            Ahmed Muneer <span style="font-size: 9px; color: rgba(255,255,255,0.35);">(23-CS-91)</span>
+          </div>
+        </div>
       </div>
     </div>
 

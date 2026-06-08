@@ -3,8 +3,13 @@
 ## University Capstone Project Report
 
 **Course**: Data Warehousing and Business Intelligence  
-**Submission Date**: May 2026  
+**Submission Date**: June 12, 2026  
 **Project Title**: Enterprise Retail Analytics Engine  
+
+**Submitted By**:  
+* **Rana Talha Majid (23-CS-127) — Project Lead** (23-cs-127@students.uettaxila.edu.pk)
+* Muhammad Ibtasam Ali (23-CS-88) (23-cs-88@students.uettaxila.edu.pk)
+* Ahmed Muneer (23-CS-91) (23-cs-91@students.uettaxila.edu.pk)
 
 ---
 
